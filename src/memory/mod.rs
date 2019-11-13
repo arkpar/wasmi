@@ -9,6 +9,7 @@ use memory_units::{Bytes, Pages, RoundUpTo};
 use parity_wasm::elements::ResizableLimits;
 use value::LittleEndianConvert;
 use Error;
+use std::fmt::Debug;
 
 #[cfg(all(unix, not(feature = "vec_memory")))]
 #[path = "mmap_bytebuf.rs"]
@@ -195,14 +196,14 @@ impl MemoryInstance {
     }
 
     /// Get value from memory at given offset.
-    pub fn get_value<T: LittleEndianConvert>(&self, offset: u32) -> Result<T, Error> {
+    pub fn get_value<T: LittleEndianConvert + Debug>(&self, offset: u32) -> Result<T, Error> {
         let mut buffer = self.buffer.borrow_mut();
         let region =
             self.checked_region(&mut buffer, offset as usize, ::core::mem::size_of::<T>())?;
-        Ok(
-            T::from_little_endian(&buffer.as_slice_mut()[region.range()])
-                .expect("Slice size is checked"),
-        )
+		let v = T::from_little_endian(&buffer.as_slice_mut()[region.range()])
+			.expect("Slice size is checked");
+		log::trace!(target: "wasm", "GET_MEMV {:08x}: {:?}", offset, v);
+        Ok(v)
     }
 
     /// Copy data from memory at given offset.
@@ -214,8 +215,9 @@ impl MemoryInstance {
     pub fn get(&self, offset: u32, size: usize) -> Result<Vec<u8>, Error> {
         let mut buffer = self.buffer.borrow_mut();
         let region = self.checked_region(&mut buffer, offset as usize, size)?;
-
-        Ok(buffer.as_slice_mut()[region.range()].to_vec())
+		let v = buffer.as_slice_mut()[region.range()].to_vec();
+		log::trace!(target: "wasm", "GET_MEM {:08x}: {}", offset, hex::encode(&v));
+		Ok(v)
     }
 
     /// Copy data from given offset in the memory into `target` slice.
@@ -239,13 +241,15 @@ impl MemoryInstance {
             .checked_region(&mut buffer, offset as usize, value.len())?
             .range();
 
+		log::trace!(target: "wasm", "GET_MEMI {:08x}: {}", offset, hex::encode(&value));
         buffer.as_slice_mut()[range].copy_from_slice(value);
 
         Ok(())
     }
 
     /// Copy value in the memory at given offset.
-    pub fn set_value<T: LittleEndianConvert>(&self, offset: u32, value: T) -> Result<(), Error> {
+    pub fn set_value<T: LittleEndianConvert + Debug>(&self, offset: u32, value: T) -> Result<(), Error> {
+		log::trace!(target: "wasm", "SET_MEMV {:08x}: {:?}", offset, value);
         let mut buffer = self.buffer.borrow_mut();
         let range = self
             .checked_region(&mut buffer, offset as usize, ::core::mem::size_of::<T>())?
@@ -261,6 +265,7 @@ impl MemoryInstance {
     ///
     /// Returns `Err` if attempted to allocate more memory than permited by the limit.
     pub fn grow(&self, additional: Pages) -> Result<Pages, Error> {
+		log::trace!(target: "wasm", "MEM_GROW {:?}", additional);
         let size_before_grow: Pages = self.current_size();
 
         if additional == Pages(0) {

@@ -16,6 +16,7 @@ use value::{
     TryTruncateInto, WrapInto,
 };
 use {Signature, Trap, TrapKind, ValueType};
+use std::fmt::Debug;
 
 /// Maximum number of bytes on the value stack.
 pub const DEFAULT_VALUE_STACK_LIMIT: usize = 1024 * 1024;
@@ -348,7 +349,7 @@ impl Interpreter {
                  since validation ensures that we either have an explicit \
                  return or an implicit block `end`.",
             );
-
+			log::trace!(target: "wasm", "{}: {:?}", iter.position(), instruction);
             match self.run_instruction(function_context, &instruction)? {
                 InstructionOutcome::RunNextInstruction => {}
                 InstructionOutcome::Branch(target) => {
@@ -746,7 +747,7 @@ impl Interpreter {
     ) -> Result<InstructionOutcome, TrapKind>
     where
         RuntimeValueInternal: From<T>,
-        T: LittleEndianConvert,
+        T: LittleEndianConvert + Debug,
     {
         let raw_address = self.value_stack.pop_as();
         let address = effective_address(offset, raw_address)?;
@@ -768,7 +769,7 @@ impl Interpreter {
     where
         T: ExtendInto<U>,
         RuntimeValueInternal: From<U>,
-        T: LittleEndianConvert,
+        T: LittleEndianConvert + Debug,
     {
         let raw_address = self.value_stack.pop_as();
         let address = effective_address(offset, raw_address)?;
@@ -792,7 +793,7 @@ impl Interpreter {
     ) -> Result<InstructionOutcome, TrapKind>
     where
         T: FromRuntimeValueInternal,
-        T: LittleEndianConvert,
+        T: LittleEndianConvert + Debug,
     {
         let stack_value = self.value_stack.pop_as::<T>();
         let raw_address = self.value_stack.pop_as::<u32>();
@@ -814,7 +815,7 @@ impl Interpreter {
     where
         T: FromRuntimeValueInternal,
         T: WrapInto<U>,
-        U: LittleEndianConvert,
+        U: LittleEndianConvert + Debug,
     {
         let stack_value: T = <_>::from_runtime_value_internal(self.value_stack.pop());
         let stack_value = stack_value.wrap_into();

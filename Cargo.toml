@@ -19,6 +19,8 @@ num-rational = "0.2.2"
 num-traits = "0.2.8"
 libc = "0.2.58"
 errno = { version = "0.2.4", optional = true }
+log = { version = "0.4.8" }
+hex = "0.4.0"
 
 [dev-dependencies]
 assert_matches = "1.1"
